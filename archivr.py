@@ -52,11 +52,17 @@ class archive():
 	def f_addfile(self,cfile): # TODO with
 		try:
 			tar = tarfile.open(cfilename, "a")
+		except (IOError, OSError):
+			handling().f_err("cannot open archive %s" % cfilename)
+		try:
 			tar.add(cfile)
-			tar.close()
 		except (IOError, OSError):
 			handling().f_err("%s not saved to archive" % cfile)
-		handling().f_ok("file %s saved" %cfile)
+		try:
+			tar.close()
+		except (IOError, OSError):
+			handling().f_err("cannot close archive %s" % cfilename)
+		handling().f_ok("file %s saved" % cfile)
 
 class check():
 	""" compare archived files with system files """
