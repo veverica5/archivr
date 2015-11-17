@@ -25,11 +25,6 @@ class handling():
 	""" usercheck/filecheck/err handling/print functions """
 	def __init__(self):
 		"self"
-	def f_usage(self):
-		print "usage:"
-		print sys.argv[0],"archive"
-		print sys.argv[0],"check <archive.tar>"
-		sys.exit(1)
 	def f_err(self,text):
 		print "err: %s" % text 
 		sys.exit(1)
