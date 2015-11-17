@@ -27,6 +27,7 @@ class handling():
 		"self"
 	def f_err(self,text):
 		print "err: %s" % text 
+			# exit on err!
 		sys.exit(1)
 	def f_ok(self,text):
 		print "ok: %s" % text
@@ -88,8 +89,12 @@ class check():
 def f_start():
 	parser = argparse.ArgumentParser(description='archive system config files for later integrity checks')
 	parser.add_argument('-a', '--archive', action='store_true', help='archive defined cfg files')
-	parser.add_argument('-c', '--check', nargs=1, metavar='<archive>', help='check archived files with system files')
+	parser.add_argument('-c', '--check', nargs=1, metavar='<archive>', help='check/compare archived files with system files')
 	args = parser.parse_args()
+	if sys.argv < '2':
+		# handling().f_err("no arguments provided")
+		parser.print_help()
+		sys.exit(1)
 	# am I uid 0?
 	handling().f_usercheck()
 	if args.archive: 
