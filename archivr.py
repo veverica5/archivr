@@ -9,12 +9,18 @@
 
 import os,sys,tarfile,datetime,socket,difflib,argparse
 
+# list of configuration files to be archived
 cflist="""
-/etc/sudoers
 /etc/fstab
-/etc/resolva.conf
+/etc/sudoers
+/etc/resolv.conf
 """\
 .split()
+
+# smtp configuration section
+smtpserver=""
+sender=""
+receivers=""
 
 hname = socket.getfqdn()
 ctimestamp = datetime.datetime.now()
@@ -27,81 +33,88 @@ class handling():
 		"self"
 	def f_err(self,text):
 		print "err: %s" % text 
-			# exit on err!
-		sys.exit(1)
 	def f_ok(self,text):
 		print "ok: %s" % text
-	def f_filecheck(self,cfile):
-		try:
-			os.path.isfile(cfile)
-			# handling().f_ok("%s exists" % cfile)
-		except IOError:
-			f_err("%s does not exist" %cfile)
+	def f_filecheck(self,cflist):
+			for cfile in cflist:
+				try:
+					os.path.isfile(cfile)
+				except IOError:
+					f_err("%s does not exist" %cfile)
 	def f_usercheck(self):
 		if os.getgid() != 0:
 			handling().f_err("not root")
+			sys.exit(1)
 
 class archive():
 	"""archive cflist - list of files"""
 	def __init__(self):
 		"self"
-	def f_addfile(self,cfile): # TODO with
+	def f_addfiles(self,cflist): # TODO with
 		try:
 			tar = tarfile.open(cfilename, "a")
 		except (IOError, OSError):
 			handling().f_err("cannot open archive %s" % cfilename)
-		try:
-			tar.add(cfile)
-		except (IOError, OSError):
-			handling().f_err("%s not saved to archive" % cfile)
+			sys.exit(1)
+		for cfile in cflist:
+			try:
+				tar.add(cfile)
+			except (IOError, OSError):
+				handling().f_err("%s not saved to archive" % cfile)
+			handling().f_ok("file %s saved" % cfile)
 		try:
 			tar.close()
 		except (IOError, OSError):
 			handling().f_err("cannot close archive %s" % cfilename)
-		handling().f_ok("file %s saved" % cfile)
 
 class check():
 	""" compare archived files with system files """
 	def __init__(self):
 		"self"
-	def f_compare(self,cfile):
-		# load file from archive for comparison
-		# strip leading slash; tar doesnt want to deal with that shit
+	def f_compare(self,cflist):
+		# open archive && strip leading slash from each file path;
+		# tar doesnt want to deal with that shit
 		try:
 			tar = tarfile.open(sys.argv[2], "r")
 		except IOError:
 			handling().f_err("%s not a valid tarfile" % cfilename)
-		try:
-			tfile = tar.extractfile(cfile[1:]).read().strip().splitlines()
-		except KeyError:
-			handling().f_err("%s not present in our archive" % cfilename)
-		# load system file for comparison
-		try:
-			sfile = open(cfile,"r").read().strip().splitlines()
-		except IOError:
-			handling().f_err("could not read %s system file" %sfile)
-		print "[ %s ]" % cfile
-		# compare line by line; get rid of @@ ++ -- and only print diffs
-		for line in difflib.unified_diff(tfile, sfile, fromfile='archive', tofile='system', lineterm='\n', n=0):
-			if (not line.startswith('@@')) and (not line.startswith('+++')) and (not line.startswith('---')):
-				print line
+		for cfile in cflist:
+			# load archived file for comparison
+			try:
+				tfile = tar.extractfile(cfile[1:]).read().strip().splitlines()
+			except KeyError:
+				handling().f_err("%s not present in our archive" % cfile)
+				continue
+			# load system file for comparison
+			try:
+				sfile = open(cfile,"r").read().strip().splitlines()
+			except IOError:
+				handling().f_err("could not read %s system file" % sfile)
+			# print "[ %s ]" % cfile
+			# compare line by line; get rid of @@ -- and only print diffs & source file
+			line=""
+			for line in difflib.unified_diff(tfile, sfile, fromfile='archive', tofile=cfile, lineterm='\n', n=0):
+				# if (not line.startswith('@@')) and (not line.startswith('+++')) and (not line.startswith('---')):
+				if (not line.startswith('@@')) and (not line.startswith('---')):
+					print line
+					
+	def f_email(self,cfile):
+		message = ""
 			
 def f_start():
 	parser = argparse.ArgumentParser(description='archive system config files for later integrity checks')
 	parser.add_argument('-a', '--archive', action='store_true', help='archive defined cfg files')
 	parser.add_argument('-c', '--check', nargs=1, metavar='<archive>', help='check/compare archived files with system files')
+	parser.add_argument('-e', '--email', nargs=1, metavar='<email>', help='email diffs to an email address <email>'  )
 	args = parser.parse_args()
-	if sys.argv < '2':
-		# handling().f_err("no arguments provided")
+	if len(sys.argv) < 2:
 		parser.print_help()
 		sys.exit(1)
 	# am I uid 0?
 	handling().f_usercheck()
 	if args.archive: 
-		for cfile in cflist:
-			handling().f_filecheck(cfile)
-			archive().f_addfile(cfile)
-	if args.check: 
-		for cfile in cflist:
-			 check().f_compare(cfile)
+		archive().f_addfiles(cflist)
+
+	if args.check:
+		check().f_compare(cflist)
 f_start()
