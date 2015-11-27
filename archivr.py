@@ -71,13 +71,15 @@ class check():
 	""" compare archived files with system files """
 	def __init__(self):
 		"self"
-	def f_compare(self,cflist):
+	def f_compare(self,cflist,archive):
+		archive=''.join(archive)
 		# open archive && strip leading slash from each file path;
 		# tar doesnt want to deal with that shit
 		try:
-			tar = tarfile.open(sys.argv[2], "r")
-		except IOError:
-			handling().f_err("%s not a valid tarfile" % cfilename)
+			tar = tarfile.open(archive, "r")
+		except (IOError,tarfile.ReadError):
+			handling().f_err("%s not a valid tarfile" % archive)
+			sys.exit(1)
 		for cfile in cflist:
 			# load archived file for comparison
 			try:
@@ -88,7 +90,7 @@ class check():
 			# load system file for comparison
 			try:
 				sfile = open(cfile,"r").read().strip().splitlines()
-			except IOError:
+			except IOError,tarfile.ReadError:
 				handling().f_err("could not read %s system file" % sfile)
 			# print "[ %s ]" % cfile
 			# compare line by line; get rid of @@ -- and only print diffs & source file
@@ -116,5 +118,5 @@ def f_start():
 		archive().f_addfiles(cflist)
 
 	if args.check:
-		check().f_compare(cflist)
+		check().f_compare(cflist,args.check)
 f_start()
