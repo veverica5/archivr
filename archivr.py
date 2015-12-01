@@ -11,6 +11,7 @@ import os,sys,tarfile,datetime,socket,difflib,argparse
 
 # list of configuration files to be archived
 cflist="""
+/etc/hosts
 /etc/fstab
 /etc/sudoers
 /etc/resolv.conf
@@ -72,6 +73,7 @@ class check():
 	def __init__(self):
 		"self"
 	def f_compare(self,cflist,archive):
+		diffdict={}
 		archive=''.join(archive)
 		# open archive && strip leading slash from each file path;
 		# tar doesnt want to deal with that shit
@@ -95,11 +97,19 @@ class check():
 			# print "[ %s ]" % cfile
 			# compare line by line; get rid of @@ -- and only print diffs & source file
 			line=""
+			filediff=""
 			for line in difflib.unified_diff(tfile, sfile, fromfile='archive', tofile=cfile, lineterm='\n', n=0):
-				# if (not line.startswith('@@')) and (not line.startswith('+++')) and (not line.startswith('---')):
-				if (not line.startswith('@@')) and (not line.startswith('---')):
-					print line
-					
+				if (not line.startswith('@@')) and (not line.startswith('+++')) and (not line.startswith('---')):
+				# if (not line.startswith('@@')) and (not line.startswith('---')):
+					filediff+="\n"
+					filediff+=line
+					# print cfile
+			if filediff:
+				diffdict[cfile]=filediff
+		for key, value in diffdict.iteritems():
+			print ("[%s] %s") % (key,value)
+			print ""
+		# print diffdict
 	def f_email(self,cfile):
 		message = ""
 			
