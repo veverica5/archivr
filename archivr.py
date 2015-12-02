@@ -7,7 +7,7 @@
 # archived versions of files
 # 
 
-import os,sys,tarfile,datetime,socket,difflib,argparse
+import os,sys,tarfile,datetime,socket,difflib,argparse,smtplib
 
 # list of configuration files to be archived
 cflist="""
@@ -19,9 +19,10 @@ cflist="""
 .split()
 
 # smtp configuration section
-smtpserver=""
-sender=""
-receivers=""
+smtpserver="smtp.server.example"
+sender="archivr <archivr-noreply@example.com>"
+receivers=','.join(["jane.doe@example.com"])
+subject="archivr report | "+socket.getfqdn()
 
 hname = socket.getfqdn()
 ctimestamp = datetime.datetime.now()
@@ -72,6 +73,19 @@ class check():
 	""" compare archived files with system files """
 	def __init__(self):
 		"self"
+
+        def f_email(self,message):
+		header="""From: %s 
+To: %s 
+Subject: %s \n""" % (sender,receivers,subject)
+		msg=()
+		for key,value in message.iteritems():
+			msg+=key,value+("\n\n")
+                server = smtplib.SMTP(smtpserver)
+		# create tuple from header string and merge with msg - send that
+                server.sendmail(sender, receivers, ''.join(((header,)+msg)))
+                server.quit()
+
 	def f_compare(self,cflist,archive):
 		diffdict={}
 		archive=''.join(archive)
@@ -94,39 +108,35 @@ class check():
 				sfile = open(cfile,"r").read().strip().splitlines()
 			except IOError,tarfile.ReadError:
 				handling().f_err("could not read %s system file" % sfile)
-			# print "[ %s ]" % cfile
-			# compare line by line; get rid of @@ -- and only print diffs & source file
+			# compare line by line; get rid of @@ -- +++ and fill in dictionary with differences 
 			line=""
 			filediff=""
 			for line in difflib.unified_diff(tfile, sfile, fromfile='archive', tofile=cfile, lineterm='\n', n=0):
 				if (not line.startswith('@@')) and (not line.startswith('+++')) and (not line.startswith('---')):
-				# if (not line.startswith('@@')) and (not line.startswith('---')):
 					filediff+="\n"
 					filediff+=line
-					# print cfile
 			if filediff:
+				cfile="""[ %s ]""" % cfile
 				diffdict[cfile]=filediff
 		for key, value in diffdict.iteritems():
-			print ("[%s] %s") % (key,value)
+			print key,value
 			print ""
-		# print diffdict
-	def f_email(self,cfile):
-		message = ""
-			
-def f_start():
-	parser = argparse.ArgumentParser(description='archive system config files for later integrity checks')
-	parser.add_argument('-a', '--archive', action='store_true', help='archive defined cfg files')
-	parser.add_argument('-c', '--check', nargs=1, metavar='<archive>', help='check/compare archived files with system files')
-	parser.add_argument('-e', '--email', nargs=1, metavar='<email>', help='email diffs to an email address <email>'  )
-	args = parser.parse_args()
-	if len(sys.argv) < 2:
-		parser.print_help()
-		sys.exit(1)
-	# am I uid 0?
-	handling().f_usercheck()
-	if args.archive: 
-		archive().f_addfiles(cflist)
+		if args.email:
+			self.f_email(diffdict)
 
-	if args.check:
-		check().f_compare(cflist,args.check)
-f_start()
+
+parser = argparse.ArgumentParser(description='archive system config files for later integrity checks')
+parser.add_argument('-a', '--archive', action='store_true', help='archive defined cfg files')
+parser.add_argument('-c', '--check', nargs=1, metavar='<archive>', help='check/compare archived files with system files')
+parser.add_argument('-e', '--email', action='store_true', help='email diffs to a configured address'  )
+args = parser.parse_args()
+if len(sys.argv) < 2:
+	parser.print_help()
+	sys.exit(1)
+# am I uid 0?
+handling().f_usercheck()
+if args.archive: 
+	archive().f_addfiles(cflist)
+
+if args.check:
+	check().f_compare(cflist,args.check)
