@@ -1,13 +1,13 @@
-#!rusr/bin/env python
-#
-## archivr.py v0.9 | RN
-#
-# archive sys configuration files and provide means
+#/usr/bin/env python
+##
+### snitchr.py v1.0 | RN
+##
+# snapshot system configuration files and provide means
 # of comparing current system config files with 
 # archived versions of files
 # 
 
-import os,sys,tarfile,datetime,socket,difflib,argparse,smtplib
+import os,sys,tarfile,datetime,socket,difflib,argparse,smtplib,time
 
 # list of configuration files to be archived
 cflist="""
@@ -21,16 +21,17 @@ cflist="""
 
 # smtp configuration 
 smtpserver="smtp1.emea.omc.hp.com"
-sender="archivr <archivr-noreply@hpe.com>"
+sender="snitchr <snitchr-noreply@hpe.com>"
 receivers=','.join(["richard.nedbalek@hpe.com"])
-subject="archivr report | "+socket.getfqdn()
-# archive location
-archpath="/var/log/archivr"+"/"
+subject="snitchr report | "+socket.getfqdn()
+# snapshot location
+snappath="/var/log/snitchr"+"/"
 
 hname = socket.getfqdn()
 ctimestamp = datetime.datetime.now()
+# timestamp is very relevant to automatic sorting function!
 ctimestamp = ctimestamp.strftime("%Y%m%d%H%M")
-cfilename= "%s-archive.%s.tar" % (hname, ctimestamp)
+cfilename= "%s-snapshot.%s.tar" % (hname, ctimestamp)
 
 class handling():
 	""" usercheck/filecheck/err handling/print functions """
@@ -40,15 +41,17 @@ class handling():
 		print "err: %s" % text 
 	def f_ok(self,text):
 		print "ok: %s" % text
-	def f_createarchdir(self,archpath):
-		if os.path.isdir(archpath):
+	def f_inf(self,text):
+		print "inf: %s" % text
+	def f_createsnapdir(self,snappath):
+		if os.path.isdir(snappath):
 			pass
 		else:
 			try: 
-				self.f_ok("directory does not exist, creating")
-				os.mkdir(archpath,0700)
+				self.f_inf("directory does not exist, creating")
+				os.mkdir(snappath,0700)
 			except:
-				self.f_err("cannot create %s, check manually" % archpath)
+				self.f_err("cannot create %s, check manually" % snappath)
 				sys.exit(1)
 	def f_filecheck(self,cflist):
 			for cfile in cflist:
@@ -61,35 +64,39 @@ class handling():
 			handling().f_err("not root")
 			sys.exit(1)
 # end of class 'handling'
-class archive():
-	global archloc
-	archloc=archpath+cfilename
-	handling().f_createarchdir(archpath)
-	"""archive cflist - list of files"""
+class snapshot():
+	"""snapshot cflist - list of files"""
 	def __init__(self):
 		"self"
-	def f_addfiles(self,cflist): # TODO with
+	def f_createsnap(self,cflist): # TODO with && compression
+		global snaploc
+		snaploc=snappath+cfilename
+		handling().f_createsnapdir(snappath)
 		try:
-			tar = tarfile.open(archloc, "a")
+			tar = tarfile.open(snaploc, "a")
 		except (IOError, OSError):
-			handling().f_err("cannot open archive %s" % archloc)
+			handling().f_err("cannot open snapshot %s" % snaploc)
 			sys.exit(1)
 		for cfile in cflist:
 			try:
 				tar.add(cfile)
 			except (IOError, OSError):
-				handling().f_err("%s not saved to archive" % cfile)
+				handling().f_err("%s not saved to snapshot" % cfile)
 			handling().f_ok("file %s saved" % cfile)
 		try:
 			tar.close()
 		except (IOError, OSError):
-			handling().f_err("cannot close archive %s" % archloc)
-# end of class 'archive'
+			handling().f_err("cannot close snapshot %s" % snaploc)
+# end of class 'snapshot'
 class check():
 	""" compare archived files with system files """
 	def __init__(self):
 		"self"
-        def f_email(self,message):# TODO: exceptions
+	def f_sortsnapshots(self):
+		snaplist=os.listdir(snappath)
+		snaplist=sorted(snaplist, key = lambda x: x.split('.')[-2])
+		return(snaplist)
+        def f_email(self,message):# TODO: exceptions && style for emails
 		header="From: %s \n" % sender
 		header+="To: %s \n" % receivers
 		header+="Subject: %s \n" % subject
@@ -100,23 +107,23 @@ class check():
 		# create a tuple from string variable 'header' and merge with 'msg' - send that
                 server.sendmail(sender, receivers, ''.join(((header,)+msg)))
                 server.quit()
-	def f_compare(self,cflist,archive):
+	def f_compare(self,cflist,snapshot):
 		diffdict={}
-		archive=''.join(archive)
-		archive=archpath+archive
-		# open archive && strip leading slash from each file path;
+		snapshot=''.join(snapshot)
+		snapshot=snappath+snapshot
+		# open tar snapshot && strip leading slash from each file path;
 		# tar doesnt want to deal with that shit
 		try:
-			tar = tarfile.open(archive, "r")
+			tar = tarfile.open(snapshot, "r")
 		except (IOError,tarfile.ReadError):
-			handling().f_err("%s not a valid tarfile" % archive)
+			handling().f_err("%s not a valid tarfile" % snapshot)
 			sys.exit(1)
 		for cfile in cflist:
 			# load archived file for comparison
 			try:
 				tfile = tar.extractfile(cfile[1:]).read().strip().splitlines()
 			except KeyError:
-				handling().f_err("%s not present in our archive" % cfile)
+				handling().f_err("%s not present in our snapshot" % cfile)
 				continue
 			# load system file for comparison
 			try:
@@ -126,27 +133,28 @@ class check():
 			# compare line by line; get rid of @@ -- +++ and fill in dictionary with differences 
 			line=""
 			filediff=""
-			for line in difflib.unified_diff(tfile, sfile, fromfile='archive', tofile=cfile, lineterm='\n', n=0):
+			for line in difflib.unified_diff(tfile, sfile, fromfile='snapshot', tofile=cfile, lineterm='\n', n=0):
 				if (not line.startswith('@@')) and (not line.startswith('+++')) and (not line.startswith('---')):
 					filediff+="\n"
 					filediff+=line
+			# if difference is found; fill dictionary
 			if filediff:
 				cfile="""[ %s ]""" % cfile
 				diffdict[cfile]=filediff
 		for key, value in diffdict.iteritems():
 			print key,value
 			print ""
+		# if email flag is set; send out owls
 		if args.email:
 			self.f_email(diffdict)
 # end of class 'check'
-parser = argparse.ArgumentParser(description='archive system config files for later integrity checks')
-# some options are exclusive. like check and archive and automatic
+parser = argparse.ArgumentParser(description='snapshot system config files for later integrity checks')
+# some options are exclusive. like check, snapshot & automatic
 me1=parser.add_mutually_exclusive_group()
-me1.add_argument('-a', '--archive', action='store_true', help='archive defined cfg files')
-me1.add_argument('-c', '--check', nargs=1, metavar='<archive>', help='check/compare archived files with system files')
+me1.add_argument('-s', '--snapshot', action='store_true', help='snapshot cfg files; default location /var/log/snitchr')
+me1.add_argument('-c', '--check', nargs=1, metavar='<snapshot>', help='check/compare archived files with system files')
 parser.add_argument('-e', '--email', action='store_true', help='email diffs to a configured address')
-me1.add_argument('-t', '--automatic', action='store_true', help='autonomous mode - create a new archive snapshot and check last archived files in one go')
-parser.add_argument('-l', '--location', action='store_true', help='archive output location; default: /var/log/archivr ')
+me1.add_argument('-a', '--autonomous', action='store_true', help='autonomous mode - check last archived files & create a new snapshot in one go')
 
 args = parser.parse_args()
 if len(sys.argv) < 2:
@@ -154,11 +162,16 @@ if len(sys.argv) < 2:
 	sys.exit(1)
 # am I uid 0?
 handling().f_usercheck()
-if args.archive:
-	archive().f_addfiles(cflist)
+if args.snapshot:
+	snapshot().f_createsnap(cflist)
 if args.check:
 	check().f_compare(cflist,args.check)
-if args.automatic:
-	print "todo"
-if args.location:
-	print "todo"
+if args.autonomous:
+	# order of [check & create] is very important here. sorting function delivers latest available snapshot
+	# for comparison and so first we must check and only then can we create a new snapshot; otherwise, in reversed 
+	# order, latest snapshot is the one we created in a previous function miliseconds ago,thus checking system this snapshot makes very little sense
+	snaplist=check().f_sortsnapshots()
+	check().f_compare(cflist,snaplist[-1])
+	snapshot().f_createsnap(cflist)
+
+## end of snitchr.py
