@@ -1,19 +1,18 @@
-# archivr
-archive sys configuration files and provide means of comparing current system config files with archived versions of files
+# snitchr
+snapshot system configuration files and provide means of comparing current system config files with archived versions of files
 
 ```
-root@wrk:/data/scripts/archivr# python archivr.py 
-usage: archivr.py [-h] [-a] [-c <archive>] [-e] [-t] [-l]
+root@deskt0p:/data/scripts/snitchr$ python snitchr.py 
+usage: snitchr.py [-h] [-s] [-c <snapshot>] [-e] [-a]
 
-archive system config files for later integrity checks
+snapshot system config files for later integrity checks
 
 optional arguments:
   -h, --help            show this help message and exit
-  -a, --archive         archive defined cfg files
-  -c <archive>, --check <archive>
+  -s, --snapshot        snapshot cfg files; default location /var/log/snitchr
+  -c <snapshot>, --check <snapshot>
                         check/compare archived files with system files
   -e, --email           email diffs to a configured address
-  -t, --automatic       autonomous mode - create a new archive snapshot and
-                        check last archived files in one go
-  -l, --location        archive output location; default: /var/log/archivr
+  -a, --autonomous      autonomous mode - check last archived files & create a
+                        new snapshot in one go
 ```
