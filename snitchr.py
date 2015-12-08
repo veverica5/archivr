@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 ##
 ### snitchr.py v1.0 | RN
 ##
@@ -145,9 +145,9 @@ class check():
 		for key, value in diffdict.iteritems():
 			print key,value
 			print ""
-		# if email flag is set; send out owls
-		if args.email:
-			self.f_email(diffdict)
+		# if email flag is set & diffdict is not empty; send out owls
+		if args.email and diffdict:
+				self.f_email(diffdict)
 # end of class 'check'
 parser = argparse.ArgumentParser(description='snapshot system config files for later integrity checks')
 # some options are exclusive. like check, snapshot & automatic
