@@ -16,6 +16,11 @@ cflist="""
 /etc/sudoers
 /etc/resolv.conf
 /etc/lvm/lvm.conf
+/etc/security/limits.conf
+/etc/ntp.conf
+/etc/sysctl.conf
+/etc/ssh/sshd_config
+/etc/nsswitch.conf
 """\
 .split()
 
