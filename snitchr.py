@@ -25,9 +25,9 @@ cflist="""
 .split()
 
 # smtp configuration 
-smtpserver="smtp1.emea.omc.hp.com"
-sender="snitchr <snitchr-noreply@hpe.com>"
-receivers=','.join(["richard.nedbalek@hpe.com"])
+smtpserver="smtp.server.example"
+sender="snitchr <snitchr-noreply@example.com>"
+receivers=','.join(["jane.doe@example.com"])
 subject="snitchr report | "+socket.getfqdn()
 
 # snapshot location
