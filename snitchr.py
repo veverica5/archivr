@@ -124,7 +124,7 @@ class check(object):
                 server.quit()
         def f_compare(self,cflist,snapshot):
                 diffdict={}
-                snapshot=''.join(snapshot)
+                # snapshot=''.join(snapshot)
                 snapshot=snappath+snapshot
                 # open tar snapshot && strip leading slash from each file path;
                 # tar doesnt want to deal with that shit
@@ -180,7 +180,7 @@ handling().f_usercheck()
 if args.snapshot:
         snapshot().f_createsnap(cflist)
 if args.check:
-        check().f_compare(cflist,args.check)
+        check().f_compare(cflist,os.path.basename(''.join(args.check)))
 if args.autonomous:
         # order of [check & create] is very important here. sorting function delivers latest available snapshot
         # for comparison and so first we must check and only then can we create a new snapshot; otherwise, in reversed 
